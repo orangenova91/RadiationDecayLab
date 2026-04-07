@@ -1,175 +1,88 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
-import { ControlPanel } from "@/components/control-panel";
-import { SummaryCards } from "@/components/summary-cards";
-import { TeamInputCard } from "@/components/team-input-card";
-import { DEFAULT_INITIAL_COINS, DEFAULT_ROUNDS, getAggregateByRound } from "@/lib/experiment";
-import { TeamRounds, ViewMode } from "@/types/experiment";
-
-const DEFAULT_TEAM_COUNT = 5;
-const AggregateChart = dynamic(
-  () => import("@/components/charts/aggregate-chart").then((mod) => mod.AggregateChart),
-  { ssr: false },
-);
-const RoundTotalChart = dynamic(
-  () => import("@/components/charts/round-total-chart").then((mod) => mod.RoundTotalChart),
-  { ssr: false },
-);
-
-function createDefaultTeams(roundCount: number, teamCount: number): TeamRounds[] {
-  return Array.from({ length: teamCount }, (_, idx) => ({
-    teamId: `${idx + 1}조`,
-    rounds: Array.from({ length: roundCount }, () => 0),
-  }));
-}
-
-function clampRemovedRounds(rounds: number[], maxTotal: number): number[] {
-  let remaining = maxTotal;
-  return rounds.map((value) => {
-    const safeValue = Math.max(0, Math.min(remaining, Number.isFinite(value) ? value : 0));
-    remaining -= safeValue;
-    return safeValue;
-  });
-}
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { FlaskConical } from "lucide-react";
+import { createLabRoom, labExists } from "@/lib/lab-store";
 
 export default function Home() {
-  const [roundCount, setRoundCount] = useState(DEFAULT_ROUNDS);
-  const [teamCount, setTeamCount] = useState(DEFAULT_TEAM_COUNT);
-  const [initialCoins, setInitialCoins] = useState(DEFAULT_INITIAL_COINS);
-  const [mode, setMode] = useState<ViewMode>("realtime");
-  const [teams, setTeams] = useState<TeamRounds[]>(() => createDefaultTeams(DEFAULT_ROUNDS, DEFAULT_TEAM_COUNT));
-  const [submittedTeamIds, setSubmittedTeamIds] = useState<string[]>([]);
+  const router = useRouter();
+  const [roomCode, setRoomCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const activeTeams = useMemo(() => {
-    if (mode === "realtime") {
-      return teams;
+  const handleCreate = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const code = await createLabRoom();
+      router.push(`/lab/${code}`);
+    } catch {
+      setError("실험실 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setLoading(false);
     }
-    return teams.filter((team) => submittedTeamIds.includes(team.teamId));
-  }, [mode, submittedTeamIds, teams]);
-
-  const aggregateData = useMemo(
-    () => getAggregateByRound(activeTeams, roundCount, initialCoins),
-    [activeTeams, roundCount, initialCoins],
-  );
-
-  const handleChangeRound = (teamId: string, roundIndex: number, value: number) => {
-    setTeams((prev) =>
-      prev.map((team) => {
-        if (team.teamId !== teamId) {
-          return team;
-        }
-        const rounds = [...team.rounds];
-        rounds[roundIndex] = Number.isFinite(value) ? value : 0;
-        return { ...team, rounds };
-      }),
-    );
   };
 
-  const handleRoundCountChange = (nextCount: number) => {
-    const safeCount = Math.max(1, Math.min(12, Number.isFinite(nextCount) ? nextCount : DEFAULT_ROUNDS));
-    setRoundCount(safeCount);
-    setTeams((prev) =>
-      prev.map((team) => ({
-        ...team,
-        rounds: Array.from({ length: safeCount }, (_, index) => team.rounds[index] ?? 0),
-      })),
-    );
-  };
+  const handleJoin = async () => {
+    const code = roomCode.trim().toUpperCase();
+    if (!code) {
+      setError("실험실 코드를 입력해 주세요.");
+      return;
+    }
 
-  const handleSubmitTeam = (teamId: string) => {
-    setSubmittedTeamIds((prev) =>
-      prev.includes(teamId) ? prev.filter((id) => id !== teamId) : [...prev, teamId],
-    );
-  };
-
-  const handleInitialCoinsChange = (nextCoins: number) => {
-    const safeCoins = Math.max(10, Math.min(500, Number.isFinite(nextCoins) ? nextCoins : DEFAULT_INITIAL_COINS));
-    setInitialCoins(safeCoins);
-    setTeams((prev) =>
-      prev.map((team) => ({
-        ...team,
-        rounds: clampRemovedRounds(team.rounds, safeCoins),
-      })),
-    );
-  };
-
-  const handleTeamCountChange = (nextCount: number) => {
-    const safeCount = Math.max(1, Math.min(30, Number.isFinite(nextCount) ? nextCount : DEFAULT_TEAM_COUNT));
-    setTeamCount(safeCount);
-
-    setTeams((prev) => {
-      if (safeCount <= prev.length) {
-        return prev.slice(0, safeCount);
+    setLoading(true);
+    setError("");
+    try {
+      const exists = await labExists(code);
+      if (!exists) {
+        setError("실험실 코드를 찾을 수 없습니다.");
+        return;
       }
-      const additional = Array.from({ length: safeCount - prev.length }, (_, index) => ({
-        teamId: `${prev.length + index + 1}조`,
-        rounds: Array.from({ length: roundCount }, () => 0),
-      }));
-      return [...prev, ...additional];
-    });
-
-    setSubmittedTeamIds((prev) => prev.filter((teamId) => Number(teamId.replace("조", "")) <= safeCount));
-  };
-
-  const handleReset = () => {
-    setRoundCount(DEFAULT_ROUNDS);
-    setTeamCount(DEFAULT_TEAM_COUNT);
-    setInitialCoins(DEFAULT_INITIAL_COINS);
-    setTeams(createDefaultTeams(DEFAULT_ROUNDS, DEFAULT_TEAM_COUNT));
-    setSubmittedTeamIds([]);
-    setMode("realtime");
+      router.push(`/lab/${code}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-4 md:p-8">
-      <header className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
-        <h1 className="text-xl font-bold text-zinc-900">방사성 반감기 실험 통합 대시보드</h1>
-        <p className="mt-1 text-sm text-zinc-600">
-          각 조는 초기 동전 수에서 시작해 회차별 빼낸 동전 수를 입력합니다. 전체 평균이 이론값에 수렴하는 과정을
-          확인하세요.
-        </p>
-      </header>
+    <main className="mx-auto flex min-h-screen w-full max-w-4xl items-center justify-center p-6">
+      <section className="w-full rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
+        <div className="mb-6 flex items-center gap-3">
+          <FlaskConical className="h-6 w-6 text-zinc-700" />
+          <h1 className="text-2xl font-bold text-zinc-900">방사성 동위 원소 붕괴 실험실</h1>
+        </div>
 
-      <ControlPanel
-        mode={mode}
-        roundCount={roundCount}
-        teamCount={teamCount}
-        initialCoins={initialCoins}
-        onModeChange={setMode}
-        onRoundCountChange={handleRoundCountChange}
-        onTeamCountChange={handleTeamCountChange}
-        onInitialCoinsChange={handleInitialCoinsChange}
-        onReset={handleReset}
-      />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={loading}
+            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-400"
+          >
+            실험실 생성
+          </button>
 
-      <SummaryCards teamCount={activeTeams.length} roundCount={roundCount} sampleCount={activeTeams.length * roundCount} />
+          <div className="flex flex-1 gap-2">
+            <input
+              type="text"
+              value={roomCode}
+              onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+              placeholder="실험실 입장하기 (코드 입력)"
+              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              onClick={handleJoin}
+              disabled={loading}
+              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50 disabled:cursor-not-allowed"
+            >
+              입장
+            </button>
+          </div>
+        </div>
 
-      {mode === "batched" && activeTeams.length === 0 ? (
-        <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          합산 모드입니다. 각 조 카드에서 `팀 데이터 제출`을 눌러야 통합 차트에 반영됩니다.
-        </section>
-      ) : null}
-
-      <section className="grid gap-4 lg:grid-cols-2">
-        <RoundTotalChart data={aggregateData} initialCoins={initialCoins} />
-        <AggregateChart data={aggregateData} initialCoins={initialCoins} />
-      </section>
-
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {teams.map((team) => (
-          <TeamInputCard
-            key={team.teamId}
-            team={team}
-            roundCount={roundCount}
-            initialCoins={initialCoins}
-            mode={mode}
-            isSubmitted={submittedTeamIds.includes(team.teamId)}
-            onChangeRound={handleChangeRound}
-            onSubmit={handleSubmitTeam}
-          />
-        ))}
+        {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
       </section>
     </main>
   );
