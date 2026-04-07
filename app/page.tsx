@@ -47,13 +47,13 @@ export default function Home() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl items-center justify-center p-6">
-      <section className="w-full rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
-        <div className="mb-6 flex items-center gap-3">
+      <section className="w-full rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm text-center">
+        <div className="mb-6 flex items-center justify-center gap-3">
           <FlaskConical className="h-6 w-6 text-zinc-700" />
           <h1 className="text-2xl font-bold text-zinc-900">방사성 동위 원소 붕괴 실험실</h1>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex flex-col items-center justify-center gap-3 sm:flex-row sm:items-end sm:justify-center">
           <button
             type="button"
             onClick={handleCreate}
@@ -63,26 +63,26 @@ export default function Home() {
             실험실 생성
           </button>
 
-          <div className="flex flex-1 gap-2">
+          <div className="flex items-center justify-center gap-2">
             <input
               type="text"
               value={roomCode}
               onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
               placeholder="실험실 입장하기 (코드 입력)"
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              className="w-50 rounded-lg border border-zinc-300 px-3 py-2 text-sm"
             />
             <button
               type="button"
               onClick={handleJoin}
               disabled={loading}
-              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50 disabled:cursor-not-allowed"
+              className="whitespace-nowrap rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50 disabled:cursor-not-allowed"
             >
               입장
             </button>
           </div>
         </div>
 
-        {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="mt-3 text-center text-sm text-red-600">{error}</p> : null}
       </section>
     </main>
   );
