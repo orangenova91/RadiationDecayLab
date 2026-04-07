@@ -69,13 +69,13 @@ export default function Home() {
               value={roomCode}
               onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
               placeholder="실험실 입장하기 (코드 입력)"
-              className="w-50 rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              className="w-50 rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500"
             />
             <button
               type="button"
               onClick={handleJoin}
               disabled={loading}
-              className="whitespace-nowrap rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50 disabled:cursor-not-allowed"
+              className="whitespace-nowrap rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:text-zinc-400"
             >
               입장
             </button>

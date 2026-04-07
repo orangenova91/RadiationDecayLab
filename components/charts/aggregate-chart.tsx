@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -11,14 +11,17 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { formatDecayPercent } from "@/lib/experiment";
 import { RoundAggregatePoint } from "@/types/experiment";
 
 type AggregateChartProps = {
   data: RoundAggregatePoint[];
   initialCoins: number;
+  decayProbability: number;
 };
 
-export function AggregateChart({ data, initialCoins }: AggregateChartProps) {
+export function AggregateChart({ data, initialCoins, decayProbability }: AggregateChartProps) {
+  const [showExpected, setShowExpected] = useState(true);
   const chartData = useMemo(() => {
     const n = data[0]?.teamCount ?? 0;
     const initial: RoundAggregatePoint = {
@@ -34,9 +37,23 @@ export function AggregateChart({ data, initialCoins }: AggregateChartProps) {
 
   return (
     <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-      <h2 className="mb-3 text-sm font-semibold text-zinc-800">라운드별 평균 vs 이론값</h2>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-zinc-800">라운드별 평균 vs 이론값</h2>
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="inline-flex items-center gap-2 text-xs text-zinc-700">
+            <input
+              type="checkbox"
+              checked={showExpected}
+              onChange={(e) => setShowExpected(e.target.checked)}
+              className="h-4 w-4 rounded border-zinc-300"
+            />
+            이론값(파란선) 표시
+          </label>
+        </div>
+      </div>
       <p className="mb-3 text-xs text-zinc-500">
-        라운드별 남은 동전의 비율(실험값 vs 이론값)을 표시한 그래프입니다.
+        라운드별 남은 동전의 비율(실험값 vs 이론값)을 표시한 그래프입니다. 이론값은 붕괴 확률 p={formatDecayPercent(decayProbability)} (팀당 남은 개수 ≈ 초기값 × (1−p)
+        <sup>n</sup>)를 가정합니다.
       </p>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
@@ -50,7 +67,16 @@ export function AggregateChart({ data, initialCoins }: AggregateChartProps) {
               }
             />
             <Legend />
-            <Line type="monotone" dataKey="expected" stroke="#2563eb" name="이론값" strokeWidth={2} dot={false} />
+            {showExpected ? (
+              <Line
+                type="monotone"
+                dataKey="expected"
+                stroke="#2563eb"
+                name="이론값"
+                strokeWidth={2}
+                dot={false}
+              />
+            ) : null}
             <Line type="monotone" dataKey="average" stroke="#f97316" name="실험값" strokeWidth={2} />
           </LineChart>
         </ResponsiveContainer>

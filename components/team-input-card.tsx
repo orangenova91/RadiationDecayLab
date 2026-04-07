@@ -36,7 +36,7 @@ export function TeamInputCard({
       <div className="mb-3 flex items-center justify-between">
         <div className="inline-flex items-center gap-2">
           <FlaskConical className="h-4 w-4 text-zinc-600" />
-          <h3 className="font-semibold">{team.teamId}</h3>
+          <h3 className="font-semibold text-zinc-900">{team.teamId}</h3>
         </div>
         <p className="text-xs text-zinc-500">초기값: {initialCoins}</p>
       </div>
