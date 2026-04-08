@@ -11,14 +11,16 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { formatDecayPercent } from "@/lib/experiment";
 import { RoundAggregatePoint } from "@/types/experiment";
 
 type RoundTotalChartProps = {
   data: RoundAggregatePoint[];
   initialCoins: number;
+  decayProbability: number;
 };
 
-export function RoundTotalChart({ data, initialCoins }: RoundTotalChartProps) {
+export function RoundTotalChart({ data, initialCoins, decayProbability }: RoundTotalChartProps) {
   const [showExpectedTotal, setShowExpectedTotal] = useState(false);
   const [showExpectedRemovedTotal, setShowExpectedRemovedTotal] = useState(false);
   const chartData = useMemo(() => {
@@ -67,7 +69,7 @@ export function RoundTotalChart({ data, initialCoins }: RoundTotalChartProps) {
         </div>
       </div>
       <p className="mb-3 text-xs text-zinc-500">
-        각 회차에서 모든 조 상자에 남아 있는 동전 개수 총합입니다.
+        각 회차에서 모든 조 상자에 남아 있는 동전 개수 총합입니다. 파란·보라 예상선은 붕괴 확률 p={formatDecayPercent(decayProbability)}를 사용합니다.
       </p>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">

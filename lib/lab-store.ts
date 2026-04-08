@@ -9,7 +9,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { DEFAULT_INITIAL_COINS, DEFAULT_ROUNDS } from "@/lib/experiment";
+import { DEFAULT_DECAY_PROBABILITY, DEFAULT_INITIAL_COINS, DEFAULT_ROUNDS } from "@/lib/experiment";
 import { TeamRounds, ViewMode } from "@/types/experiment";
 
 export const DEFAULT_TEAM_COUNT = 5;
@@ -18,6 +18,8 @@ export type LabSettings = {
   roundCount: number;
   teamCount: number;
   initialCoins: number;
+  /** 한 라운드당 붕괴 확률 p (0.01~0.99) */
+  decayProbability: number;
   mode: ViewMode;
 };
 
@@ -33,6 +35,7 @@ export function defaultSettings(): LabSettings {
     roundCount: DEFAULT_ROUNDS,
     teamCount: DEFAULT_TEAM_COUNT,
     initialCoins: DEFAULT_INITIAL_COINS,
+    decayProbability: DEFAULT_DECAY_PROBABILITY,
     mode: "realtime",
   };
 }

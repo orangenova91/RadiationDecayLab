@@ -12,11 +12,18 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
+import { FlaskConical } from "lucide-react";
 import { ControlPanel } from "@/components/control-panel";
 import { SummaryCards } from "@/components/summary-cards";
 import { TeamInputCard } from "@/components/team-input-card";
 import { db } from "@/lib/firebase";
-import { DEFAULT_INITIAL_COINS, DEFAULT_ROUNDS, getAggregateByRound } from "@/lib/experiment";
+import {
+  clampDecayProbability,
+  DEFAULT_DECAY_PROBABILITY,
+  DEFAULT_INITIAL_COINS,
+  DEFAULT_ROUNDS,
+  getAggregateByRound,
+} from "@/lib/experiment";
 import {
   DEFAULT_TEAM_COUNT,
   LabSettings,
@@ -59,7 +66,7 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
         return;
       }
       if (data.settings) {
-        setSettings(data.settings as LabSettings);
+        setSettings({ ...defaultSettings(), ...(data.settings as Partial<LabSettings>) });
       }
     });
 
@@ -80,6 +87,7 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
   const roundCount = settings.roundCount ?? DEFAULT_ROUNDS;
   const teamCount = settings.teamCount ?? DEFAULT_TEAM_COUNT;
   const initialCoins = settings.initialCoins ?? DEFAULT_INITIAL_COINS;
+  const decayProbability = settings.decayProbability ?? DEFAULT_DECAY_PROBABILITY;
   const mode = settings.mode ?? "realtime";
 
   const activeTeams = useMemo(() => {
@@ -90,8 +98,8 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
   }, [mode, teams]);
 
   const aggregateData = useMemo(
-    () => getAggregateByRound(activeTeams, roundCount, initialCoins),
-    [activeTeams, roundCount, initialCoins],
+    () => getAggregateByRound(activeTeams, roundCount, initialCoins, decayProbability),
+    [activeTeams, roundCount, initialCoins, decayProbability],
   );
 
   const handleChangeRound = async (teamId: string, roundIndex: number, value: number) => {
@@ -166,6 +174,13 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
     await updateLabSettings(roomCode, nextSettings);
   };
 
+  const handleDecayProbabilityChange = async (nextP: number) => {
+    const safeP = clampDecayProbability(nextP);
+    const nextSettings = { ...settings, decayProbability: safeP };
+    setSettings(nextSettings);
+    await updateLabSettings(roomCode, nextSettings);
+  };
+
   const handleReset = async () => {
     const fresh = defaultSettings();
     setSettings(fresh);
@@ -193,7 +208,10 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
       <header className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-zinc-900">방사성 반감기 실험실</h1>
+            <div className="flex items-center gap-2">
+              <FlaskConical className="h-6 w-6 shrink-0 text-zinc-700" aria-hidden />
+              <h1 className="text-xl font-bold text-zinc-900">방사성 반감기 실험실</h1>
+            </div>
             <p className="mt-1 text-sm text-zinc-600">
               실험실 코드: <span className="font-semibold">{roomCode}</span>
             </p>
@@ -201,7 +219,7 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
           <button
             type="button"
             onClick={() => setShowLeaveModal(true)}
-            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
+            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
           >
             실험실 나가기
           </button>
@@ -209,14 +227,17 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
       </header>
 
       <ControlPanel
+        roomCode={roomCode}
         mode={mode}
         roundCount={roundCount}
         teamCount={teamCount}
         initialCoins={initialCoins}
+        decayProbability={decayProbability}
         onModeChange={handleModeChange}
         onRoundCountChange={handleRoundCountChange}
         onTeamCountChange={handleTeamCountChange}
         onInitialCoinsChange={handleInitialCoinsChange}
+        onDecayProbabilityChange={handleDecayProbabilityChange}
         onReset={handleReset}
       />
 
@@ -229,8 +250,8 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
       ) : null}
 
       <section className="grid gap-4 lg:grid-cols-2">
-        <RoundTotalChart data={aggregateData} initialCoins={initialCoins} />
-        <AggregateChart data={aggregateData} initialCoins={initialCoins} />
+        <RoundTotalChart data={aggregateData} initialCoins={initialCoins} decayProbability={decayProbability} />
+        <AggregateChart data={aggregateData} initialCoins={initialCoins} decayProbability={decayProbability} />
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -257,7 +278,7 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
               <button
                 type="button"
                 onClick={() => setShowLeaveModal(false)}
-                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm text-zinc-900 hover:bg-zinc-50"
               >
                 취소
               </button>

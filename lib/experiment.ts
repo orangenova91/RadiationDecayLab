@@ -2,16 +2,45 @@ import { RoundAggregatePoint, TeamRounds } from "@/types/experiment";
 
 export const DEFAULT_INITIAL_COINS = 100;
 export const DEFAULT_ROUNDS = 8;
+/** 한 라운드에서 개체 하나가 붕괴할 확률 p (동전 앞면=0.5, 6면 주사위 스티커 1면≈1/6 등) */
+export const DEFAULT_DECAY_PROBABILITY = 0.5;
 
-export function calculateExpected(round: number, initialCoins: number): number {
-  return initialCoins * 0.5 ** round;
+const DECAY_P_MIN = 0.01;
+const DECAY_P_MAX = 0.99;
+
+export function clampDecayProbability(p: number): number {
+  if (!Number.isFinite(p)) {
+    return DEFAULT_DECAY_PROBABILITY;
+  }
+  return Math.min(DECAY_P_MAX, Math.max(DECAY_P_MIN, p));
+}
+
+/** 차트·설명문용 (예: 50%, 16.7%) */
+export function formatDecayPercent(p: number): string {
+  const c = clampDecayProbability(p);
+  const pct = c * 100;
+  if (Math.abs(pct - Math.round(pct)) < 1e-4) {
+    return `${Math.round(pct)}%`;
+  }
+  return `${pct.toFixed(1)}%`;
+}
+
+export function calculateExpected(
+  round: number,
+  initialCoins: number,
+  decayProbability: number = DEFAULT_DECAY_PROBABILITY,
+): number {
+  const p = clampDecayProbability(decayProbability);
+  return initialCoins * (1 - p) ** round;
 }
 
 export function getAggregateByRound(
   teams: TeamRounds[],
   roundCount: number,
   initialCoins: number,
+  decayProbability: number = DEFAULT_DECAY_PROBABILITY,
 ): RoundAggregatePoint[] {
+  const p = clampDecayProbability(decayProbability);
   return Array.from({ length: roundCount }, (_, index) => {
     const round = index + 1;
     const values = teams
@@ -20,7 +49,7 @@ export function getAggregateByRound(
     const sum = values.reduce((acc, value) => acc + value, 0);
     const average = values.length ? sum / values.length : 0;
 
-    const expected = calculateExpected(round, initialCoins);
+    const expected = calculateExpected(round, initialCoins, p);
     return {
       round,
       expected,
