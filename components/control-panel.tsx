@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { ChevronUp, Coins, Dice1, Dice2, Dice3, Dice4, Dice5, RotateCcw } from "lucide-react";
@@ -7,6 +8,7 @@ import { clampDecayProbability } from "@/lib/experiment";
 import { ViewMode } from "@/types/experiment";
 
 type ControlPanelProps = {
+  roomCode: string;
   mode: ViewMode;
   roundCount: number;
   teamCount: number;
@@ -34,6 +36,7 @@ function decayPresetMatches(current: number, presetValue: number) {
 }
 
 export function ControlPanel({
+  roomCode,
   mode,
   roundCount,
   teamCount,
@@ -58,7 +61,7 @@ export function ControlPanel({
               <select
                 value={mode}
                 onChange={(e) => onModeChange(e.target.value as ViewMode)}
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
               >
                 <option value="realtime">실시간 반영</option>
                 <option value="batched">합산 반영</option>
@@ -72,7 +75,7 @@ export function ControlPanel({
                 max={12}
                 value={roundCount}
                 onChange={(e) => onRoundCountChange(Number(e.target.value))}
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
               />
             </label>
             <label className="flex flex-col gap-1">
@@ -83,7 +86,7 @@ export function ControlPanel({
                 max={30}
                 value={teamCount}
                 onChange={(e) => onTeamCountChange(Number(e.target.value))}
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
               />
             </label>
             <label className="flex flex-col gap-1">
@@ -94,18 +97,26 @@ export function ControlPanel({
                 max={500}
                 value={initialCoins}
                 onChange={(e) => onInitialCoinsChange(Number(e.target.value))}
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
               />
             </label>
           </div>
-          <button
-            type="button"
-            onClick={onReset}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
-          >
-            <RotateCcw className="h-4 w-4" />
-            전체 초기화
-          </button>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Link
+              href={`/coin-shop?room=${encodeURIComponent(roomCode)}`}
+              className="inline-flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2"
+            >
+              동전 사러가기
+            </Link>
+            <button
+              type="button"
+              onClick={onReset}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
+            >
+              <RotateCcw className="h-4 w-4" />
+              전체 초기화
+            </button>
+          </div>
         </div>
 
         <div className="border-t border-zinc-100 pt-4">

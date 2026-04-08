@@ -223,6 +223,7 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
       </header>
 
       <ControlPanel
+        roomCode={roomCode}
         mode={mode}
         roundCount={roundCount}
         teamCount={teamCount}
