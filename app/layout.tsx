@@ -50,7 +50,7 @@ export default function RootLayout({
                 <p className="text-sm font-semibold text-zinc-800">방사성 동위 원소 붕괴 실험실</p>
                 <p className="text-xs text-zinc-500">버전: v1.0.5 (최종 업데이트: 2026-04-07)</p>
               </div>
-              <p>개발자: 언양고등학교 (Eonyang High School) · 교사 박주현</p>
+              <p>개발자: 언양고등학교 (Eonyang High School) · 교사 JH_Park</p>
             </div>
 
             <div className="grid gap-1 text-zinc-500 md:justify-items-end">

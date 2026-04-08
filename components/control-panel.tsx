@@ -104,7 +104,7 @@ export function ControlPanel({
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <Link
               href={`/coin-shop?room=${encodeURIComponent(roomCode)}`}
-              className="inline-flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2"
+              className="inline-flex items-center justify-center rounded-lg border border-amber-600/70 bg-gradient-to-b from-amber-200 via-amber-300 to-amber-400 px-4 py-2 text-sm font-semibold text-amber-950 shadow-sm hover:from-amber-300 hover:via-amber-400 hover:to-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
             >
               동전 사러가기
             </Link>
