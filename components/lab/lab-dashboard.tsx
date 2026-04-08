@@ -12,6 +12,7 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
+import { FlaskConical } from "lucide-react";
 import { ControlPanel } from "@/components/control-panel";
 import { SummaryCards } from "@/components/summary-cards";
 import { TeamInputCard } from "@/components/team-input-card";
@@ -207,7 +208,10 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
       <header className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-zinc-900">방사성 반감기 실험실</h1>
+            <div className="flex items-center gap-2">
+              <FlaskConical className="h-6 w-6 shrink-0 text-zinc-700" aria-hidden />
+              <h1 className="text-xl font-bold text-zinc-900">방사성 반감기 실험실</h1>
+            </div>
             <p className="mt-1 text-sm text-zinc-600">
               실험실 코드: <span className="font-semibold">{roomCode}</span>
             </p>
