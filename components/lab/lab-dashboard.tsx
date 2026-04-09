@@ -26,6 +26,7 @@ import {
 } from "@/lib/experiment";
 import {
   DEFAULT_TEAM_COUNT,
+  LabMeta,
   LabSettings,
   defaultSettings,
   defaultTeams,
@@ -53,6 +54,7 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
   const router = useRouter();
   const [settings, setSettings] = useState<LabSettings>(defaultSettings());
   const [teams, setTeams] = useState<TeamDoc[]>([]);
+  const [labMeta, setLabMeta] = useState<LabMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
 
@@ -67,6 +69,23 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
       }
       if (data.settings) {
         setSettings({ ...defaultSettings(), ...(data.settings as Partial<LabSettings>) });
+      }
+      const m = data.meta as Partial<LabMeta> | undefined;
+      if (
+        m &&
+        typeof m.region === "string" &&
+        typeof m.schoolName === "string" &&
+        typeof m.grade === "string" &&
+        typeof m.classSection === "string"
+      ) {
+        setLabMeta({
+          region: m.region,
+          schoolName: m.schoolName,
+          grade: m.grade,
+          classSection: m.classSection,
+        });
+      } else {
+        setLabMeta(null);
       }
     });
 
@@ -88,7 +107,7 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
   const teamCount = settings.teamCount ?? DEFAULT_TEAM_COUNT;
   const initialCoins = settings.initialCoins ?? DEFAULT_INITIAL_COINS;
   const decayProbability = settings.decayProbability ?? DEFAULT_DECAY_PROBABILITY;
-  const mode = settings.mode ?? "realtime";
+  const mode = settings.mode ?? "batched";
 
   const activeTeams = useMemo(() => {
     if (mode === "realtime") {
@@ -143,6 +162,14 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
     });
   };
 
+  const handleCommitGroupName = async (teamId: string, groupName: string) => {
+    const safe = groupName.slice(0, 40);
+    await updateDoc(doc(db, "labs", roomCode, "teams", teamId), {
+      groupName: safe,
+      updatedAt: serverTimestamp(),
+    });
+  };
+
   const handleInitialCoinsChange = async (nextCoins: number) => {
     const safeCoins = Math.max(10, Math.min(500, Number.isFinite(nextCoins) ? nextCoins : DEFAULT_INITIAL_COINS));
     const nextSettings = { ...settings, initialCoins: safeCoins };
@@ -163,9 +190,18 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
   const handleTeamCountChange = async (nextCount: number) => {
     const safeCount = Math.max(1, Math.min(30, Number.isFinite(nextCount) ? nextCount : DEFAULT_TEAM_COUNT));
     const nextSettings = { ...settings, teamCount: safeCount };
+    const prevSettings = settings;
     setSettings(nextSettings);
-    await updateLabSettings(roomCode, nextSettings);
-    await syncTeamsCount(roomCode, roundCount, safeCount);
+    try {
+      await updateLabSettings(roomCode, nextSettings);
+      await syncTeamsCount(roomCode, roundCount, safeCount);
+    } catch (err) {
+      console.error("[handleTeamCountChange]", err);
+      setSettings(prevSettings);
+      window.alert(
+        "조 수를 바꾸는 데 실패했습니다. Firestore 보안 규칙(teams 삭제 허용 등)을 확인하거나 잠시 후 다시 시도해 주세요.",
+      );
+    }
   };
 
   const handleModeChange = async (nextMode: LabSettings["mode"]) => {
@@ -193,6 +229,7 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
         updateDoc(doc(db, "labs", roomCode, "teams", team.teamId), {
           rounds: team.rounds,
           submitted: false,
+          groupName: "",
           updatedAt: serverTimestamp(),
         }),
       ),
@@ -215,6 +252,11 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
             <p className="mt-1 text-sm text-zinc-600">
               실험실 코드: <span className="font-semibold">{roomCode}</span>
             </p>
+            {labMeta ? (
+              <p className="mt-1 text-sm text-zinc-600">
+                {labMeta.region} · {labMeta.schoolName} · {labMeta.grade} · {labMeta.classSection}
+              </p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -257,7 +299,7 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {teams.map((team) => (
           <TeamInputCard
-            key={team.teamId}
+            key={`${team.teamId}-${team.groupName ?? ""}`}
             team={team}
             roundCount={roundCount}
             initialCoins={initialCoins}
@@ -265,6 +307,7 @@ export function LabDashboard({ roomCode }: LabDashboardProps) {
             isSubmitted={Boolean(team.submitted)}
             onChangeRound={handleChangeRound}
             onSubmit={handleSubmitTeam}
+            onCommitGroupName={handleCommitGroupName}
           />
         ))}
       </section>

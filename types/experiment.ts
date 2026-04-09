@@ -1,6 +1,8 @@
 export type TeamRounds = {
   teamId: string;
   rounds: number[];
+  /** 실험대 사용 표시용 조 이름(다른 팀이 실시간으로 확인) */
+  groupName?: string;
 };
 
 export type ViewMode = "realtime" | "batched";

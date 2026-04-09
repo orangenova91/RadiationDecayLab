@@ -9,6 +9,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { recordLabEngagement } from "@/lib/engagement-stats";
 import { DEFAULT_DECAY_PROBABILITY, DEFAULT_INITIAL_COINS, DEFAULT_ROUNDS } from "@/lib/experiment";
 import { TeamRounds, ViewMode } from "@/types/experiment";
 
@@ -36,11 +37,21 @@ export function defaultSettings(): LabSettings {
     teamCount: DEFAULT_TEAM_COUNT,
     initialCoins: DEFAULT_INITIAL_COINS,
     decayProbability: DEFAULT_DECAY_PROBABILITY,
-    mode: "realtime",
+    mode: "batched",
   };
 }
 
-export async function createLabRoom() {
+/** 실험실 생성 시 입력하는 학급·학교 정보 (Firestore `labs/{code}.meta`) */
+export type LabMeta = {
+  region: string;
+  schoolName: string;
+  /** 참여 학년 (자유 입력, 예: 2학년) */
+  grade: string;
+  /** 학반 (자유 입력, 예: 3반) */
+  classSection: string;
+};
+
+export async function createLabRoom(meta: LabMeta) {
   const settings = defaultSettings();
   const roomCode = await generateUniqueRoomCode();
   const roomRef = doc(db, "labs", roomCode);
@@ -48,6 +59,12 @@ export async function createLabRoom() {
   await setDoc(roomRef, {
     roomCode,
     settings,
+    meta: {
+      region: meta.region.trim(),
+      schoolName: meta.schoolName.trim(),
+      grade: meta.grade.trim(),
+      classSection: meta.classSection.trim(),
+    },
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -60,10 +77,17 @@ export async function createLabRoom() {
         teamId: team.teamId,
         rounds: team.rounds,
         submitted: false,
+        groupName: "",
         updatedAt: serverTimestamp(),
       }),
     ),
   );
+
+  try {
+    await recordLabEngagement(meta);
+  } catch (err) {
+    console.error("[createLabRoom] engagement stats failed (lab was created)", err);
+  }
 
   return roomCode;
 }
@@ -95,6 +119,7 @@ export async function syncTeamsCount(roomCode: string, roundCount: number, teamC
           teamId,
           rounds: Array.from({ length: roundCount }, () => 0),
           submitted: false,
+          groupName: "",
           updatedAt: serverTimestamp(),
         }),
       );

@@ -2,8 +2,25 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { FirebaseError } from "firebase/app";
 import { ChevronDown, Radiation } from "lucide-react";
-import { createLabRoom, labExists } from "@/lib/lab-store";
+import { EngagementStatsBanner } from "@/components/engagement-stats-banner";
+import { CreateLabDialog } from "@/components/create-lab-dialog";
+import { createLabRoom, labExists, type LabMeta } from "@/lib/lab-store";
+
+function labCreateErrorMessage(err: unknown): string {
+  console.error("[createLabRoom]", err);
+  if (err instanceof FirebaseError) {
+    if (err.code === "permission-denied") {
+      return "Firestore에 쓸 권한이 없습니다. Firebase 콘솔 → Firestore → 규칙에서 labs·teams 문서 쓰기와 meta 필드를 허용하는지 확인해 주세요.";
+    }
+    if (err.code === "unavailable") {
+      return "네트워크 연결을 확인한 뒤 다시 시도해 주세요.";
+    }
+    return `실험실 생성에 실패했습니다. (${err.code})`;
+  }
+  return "실험실 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+}
 
 export default function Home() {
   const router = useRouter();
@@ -11,15 +28,26 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [manualOpen, setManualOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createDialogKey, setCreateDialogKey] = useState(0);
+  const [labCreateError, setLabCreateError] = useState("");
 
-  const handleCreate = async () => {
+  const handleCreateDialogOpenChange = (open: boolean) => {
+    setCreateDialogOpen(open);
+    if (!open) {
+      setLabCreateError("");
+    }
+  };
+
+  const handleCreateConfirm = async (meta: LabMeta) => {
     setLoading(true);
-    setError("");
+    setLabCreateError("");
     try {
-      const code = await createLabRoom();
+      const code = await createLabRoom(meta);
+      setCreateDialogOpen(false);
       router.push(`/lab/${code}`);
-    } catch {
-      setError("실험실 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    } catch (err) {
+      setLabCreateError(labCreateErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -59,12 +87,25 @@ export default function Home() {
           <div className="flex flex-col items-center justify-center gap-3 sm:flex-row sm:items-end sm:justify-center">
             <button
               type="button"
-              onClick={handleCreate}
+              onClick={() => {
+                setLabCreateError("");
+                setCreateDialogKey((k) => k + 1);
+                setCreateDialogOpen(true);
+              }}
               disabled={loading}
               className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-400"
             >
               실험실 생성
             </button>
+
+            <CreateLabDialog
+              key={createDialogKey}
+              open={createDialogOpen}
+              onOpenChange={handleCreateDialogOpenChange}
+              onConfirm={handleCreateConfirm}
+              loading={loading}
+              submitError={labCreateError}
+            />
 
             <div className="flex items-center justify-center gap-2">
               <input
@@ -88,6 +129,8 @@ export default function Home() {
           {error ? <p className="mt-3 text-center text-sm text-red-600">{error}</p> : null}
         </section>
       </div>
+
+      <EngagementStatsBanner />
 
       <section
         className="mt-4 w-full shrink-0 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm md:p-8"
@@ -126,7 +169,7 @@ export default function Home() {
             <h3 className="mb-1.5 font-medium text-zinc-900">1. 실험실 만들기·들어가기</h3>
             <ul className="list-inside list-disc space-y-1 pl-0.5">
               <li>
-                <strong className="font-medium text-zinc-800">실험실 생성</strong>을 누르면 새 코드가 만들어지며 바로 실험실 화면으로 이동합니다.
+                <strong className="font-medium text-zinc-800">실험실 생성</strong>을 누르면 지역·학교명·참여 학년·학반을 입력한 뒤 새 코드가 만들어지며 실험실 화면으로 이동합니다.
               </li>
               <li>
               학생들은 생성된 실험실의 상단에 표시된 <strong className="font-medium text-zinc-800">실험실 코드</strong>를 입력하고 <strong className="font-medium text-zinc-800">입장</strong>을 눌러 실험실에 입장합니다.
