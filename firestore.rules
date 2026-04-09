@@ -1,0 +1,133 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isRoomCode(code) {
+      return code is string
+        && code.size() == 6
+        && code.matches('^[A-Z2-9]+$');
+    }
+
+    function isMode(v) {
+      return v in ['realtime', 'batched'];
+    }
+
+    function isValidSettings(s) {
+      return s is map
+        && s.keys().hasOnly(['roundCount', 'teamCount', 'initialCoins', 'decayProbability', 'mode'])
+        && s.roundCount is int && s.roundCount >= 1 && s.roundCount <= 12
+        && s.teamCount is int && s.teamCount >= 1 && s.teamCount <= 30
+        && s.initialCoins is int && s.initialCoins >= 10 && s.initialCoins <= 500
+        && s.decayProbability is number && s.decayProbability >= 0.01 && s.decayProbability <= 0.99
+        && isMode(s.mode);
+    }
+
+    /** 앱의 labs.meta (지역·학교·학년·학반) — lib/lab-store.ts 와 동일 구조 */
+    function isValidMeta(m) {
+      return m is map
+        && m.keys().hasOnly(['region', 'schoolName', 'grade', 'classSection'])
+        && m.region is string && m.region.size() > 0 && m.region.size() <= 200
+        && m.schoolName is string && m.schoolName.size() > 0 && m.schoolName.size() <= 200
+        && m.grade is string && m.grade.size() > 0 && m.grade.size() <= 100
+        && m.classSection is string && m.classSection.size() > 0 && m.classSection.size() <= 100;
+    }
+
+    /** 생성 후 meta는 변경 불가 (설정 업데이트만 허용) */
+    function metaImmutable() {
+      return !resource.data.keys().hasAny(['meta'])
+        ? !request.resource.data.keys().hasAny(['meta'])
+        : request.resource.data.meta == resource.data.meta;
+    }
+
+    function isValidTeamId(teamId) {
+      return teamId is string && teamId.matches('^[1-9][0-9]?조$');
+    }
+
+    /** "5조" → 5 (teamId는 isValidTeamId 패턴) */
+    function teamNumberFromId(teamId) {
+      return int(teamId.split('조')[0]);
+    }
+
+    /**
+     * 조 수를 줄일 때 클라이언트가 상위 labs.settings.teamCount를 먼저 낮춘 뒤
+     * 남는 번호의 팀 문서를 삭제한다. 삭제 대상은 새 teamCount보다 번호가 큰 조만.
+     */
+    function canDeleteTeam(roomCode, teamId) {
+      let lab = get(/databases/$(database)/documents/labs/$(roomCode));
+      return isValidTeamId(teamId)
+        && lab.data.settings.teamCount is int
+        && teamNumberFromId(teamId) > lab.data.settings.teamCount;
+    }
+
+    function isValidRounds(rounds, maxRoundCount, maxCoin) {
+      return rounds is list
+        && rounds.size() == maxRoundCount
+        && rounds.size() <= 12
+        && rounds[0] is number && rounds[0] >= 0 && rounds[0] <= maxCoin;
+    }
+
+    /** 실험대 조 이름(비어 있어도 됨, 최대 40자) */
+    function isValidGroupNameField(data) {
+      return !data.keys().hasAny(['groupName'])
+        || (data.groupName is string && data.groupName.size() <= 40);
+    }
+
+    /**
+     * 참여 통계: stats/overview(요약), stats/{64hex}(학교별 세션 수·지역·학교명)
+     * 클라이언트에서 실험실 생성 직후 갱신. 조작 방지는 추후 Cloud Functions 권장.
+     */
+    match /stats/{docId} {
+      allow read: if true;
+      allow create, update: if docId == 'overview'
+        || docId.matches('^[a-f0-9]{64}$');
+      allow delete: if false;
+    }
+
+    match /labs/{roomCode} {
+      allow read: if true;
+
+      allow create: if isRoomCode(roomCode)
+        && request.resource.data.keys().hasOnly(['roomCode', 'settings', 'meta', 'createdAt', 'updatedAt'])
+        && request.resource.data.roomCode == roomCode
+        && isValidSettings(request.resource.data.settings)
+        && isValidMeta(request.resource.data.meta);
+
+      allow update: if resource.data.roomCode == roomCode
+        && request.resource.data.roomCode == resource.data.roomCode
+        && metaImmutable()
+        && isValidSettings(request.resource.data.settings);
+
+      allow delete: if false;
+
+      match /teams/{teamId} {
+        allow read: if true;
+
+        allow create: if isRoomCode(roomCode)
+          && isValidTeamId(teamId)
+          && request.resource.data.keys().hasOnly(['teamId', 'rounds', 'submitted', 'groupName', 'updatedAt'])
+          && request.resource.data.teamId == teamId
+          && request.resource.data.submitted is bool
+          && request.resource.data.groupName is string
+          && request.resource.data.groupName.size() <= 40
+          && isValidRounds(
+               request.resource.data.rounds,
+               get(/databases/$(database)/documents/labs/$(roomCode)).data.settings.roundCount,
+               get(/databases/$(database)/documents/labs/$(roomCode)).data.settings.initialCoins
+             );
+
+        allow update: if isValidTeamId(teamId)
+          && request.resource.data.keys().hasOnly(['teamId', 'rounds', 'submitted', 'groupName', 'updatedAt'])
+          && request.resource.data.teamId == resource.data.teamId
+          && request.resource.data.submitted is bool
+          && isValidGroupNameField(request.resource.data)
+          && isValidRounds(
+               request.resource.data.rounds,
+               get(/databases/$(database)/documents/labs/$(roomCode)).data.settings.roundCount,
+               get(/databases/$(database)/documents/labs/$(roomCode)).data.settings.initialCoins
+             );
+
+        allow delete: if isRoomCode(roomCode) && canDeleteTeam(roomCode, teamId);
+      }
+    }
+  }
+}
