@@ -5,6 +5,7 @@ import { collection, doc, getDocs, limit, onSnapshot, orderBy, query } from "fir
 import { Users } from "lucide-react";
 import { db } from "@/lib/firebase";
 import type { EngagementOverview } from "@/lib/engagement-stats";
+import { maskSchoolName } from "@/lib/mask-school-name";
 
 const OVERVIEW_PATH = ["stats", "overview"] as const;
 const SCHOOL_LIST_LIMIT = 500;
@@ -145,6 +146,7 @@ export function EngagementStatsBanner() {
             </div>
             <p className="mt-1 text-xs text-zinc-500">
               누적 참여 학교 수: {data.uniqueSchools.toLocaleString("ko-KR")}개
+              · 학교명은 일부 가려 표시됩니다
             </p>
 
             {schoolRowsLoading ? (
@@ -166,7 +168,7 @@ export function EngagementStatsBanner() {
                     {schoolRows.map((row) => (
                       <tr key={row.id} className="border-t border-zinc-100">
                         <td className="px-3 py-2 text-zinc-700">{row.region}</td>
-                        <td className="px-3 py-2 text-zinc-900">{row.schoolName}</td>
+                        <td className="px-3 py-2 text-zinc-900">{maskSchoolName(row.schoolName)}</td>
                         <td className="px-3 py-2 text-right tabular-nums text-zinc-900">
                           {row.sessionCount.toLocaleString("ko-KR")}
                         </td>
